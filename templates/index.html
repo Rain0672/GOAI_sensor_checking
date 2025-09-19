@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Data Monitoring System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4757;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #2ed573;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .device-selector, .date-input, .refresh-btn {
+            padding: 12px 20px;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            background: white;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .device-selector:focus, .date-input:focus {
+            border-color: #764ba2;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .refresh-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            padding-left: 40px;
+            padding-bottom: 40px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            height: 480px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-canvas-container {
+            position: relative;
+            height: 340px;
+            width: calc(100% - 20px);
+            margin-left: 10px;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+        }
+
+        .data-table {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid rgba(102, 126, 234, 0.1);
+        }
+
+        .table-container {
+            max-height: 500px;
+            overflow: auto;
+            border-radius: 10px;
+            border: 1px solid #e1e5e9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #555;
+        }
+
+        tr:hover td {
+            background-color: rgba(102, 126, 234, 0.05);
+        }
+
+        .loading {
+            background: #3498db;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .error {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .success {
+            background: linear-gradient(45deg, #51cf66, #40c057);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .chart-card {
+                height: 400px;
+                padding: 20px;
+            }
+
+            .chart-canvas-container {
+                height: 300px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>Sensor Data Monitoring System</h1>
+            <div class="status-indicator">
+                <div class="status-dot" id="connectionStatus"></div>
+                <span id="connectionText">Connecting...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="controls">
+            <select id="deviceSelector" class="device-selector">
+                <option value="">Select Device</option>
+                <option value="40377991">Device 40377991 (Comprehensive)</option>
+                <option value="40372539">Device 40372539 (Temp & Velocity)</option>
+            </select>
+            
+            <input type="datetime-local" id="startDate" class="date-input" title="Start Time">
+            <input type="datetime-local" id="endDate" class="date-input" title="End Time">
+            
+            <button id="refreshBtn" class="refresh-btn">Refresh Data</button>
+            
+            <select id="chartHours" class="device-selector">
+                <option value="1">Last 1 hour</option>
+                <option value="6">Last 6 hours</option>
+                <option value="24" selected>Last 24 hours</option>
+                <option value="168">Last 7 days</option>
+            </select>
+        </div>
+
+        <div id="messageArea"></div>
+
+        <div id="statsContainer" class="stats-grid" style="display: none;"></div>
+
+        <div id="chartsContainer" class="charts-container" style="display: none;"></div>
+
+        <div id="tableContainer" class="data-table" style="display: none;">
+            <h2 class="chart-title">Latest Data</h2>
+            <div class="table-container">
+                <table>
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration - The backend is on the same server
+        const API_BASE = '/api';
+        
+        let currentDevice = null;
+        let charts = {};
+        let realtimeInterval = null;
+
+        // DOM Elements
+        const elements = {
+            deviceSelector: document.getElementById('deviceSelector'),
+            startDate: document.getElementById('startDate'),
+            endDate: document.getElementById('endDate'),
+            refreshBtn: document.getElementById('refreshBtn'),
+            chartHours: document.getElementById('chartHours'),
+            messageArea: document.getElementById('messageArea'),
+            statsContainer: document.getElementById('statsContainer'),
+            chartsContainer: document.getElementById('chartsContainer'),
+            tableContainer: document.getElementById('tableContainer'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            connectionText: document.getElementById('connectionText')
+        };
+
+        // Event Listeners
+        elements.deviceSelector.addEventListener('change', handleDeviceChange);
+        elements.refreshBtn.addEventListener('click', refreshData);
+        elements.chartHours.addEventListener('change', updateCharts);
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', init);
+
+        async function init() {
+            showMessage('Initializing system...', 'loading');
+            await checkConnection();
+            await loadDevices();
+        }
+
+        async function checkConnection() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                if (response.ok && data.database === 'connected') {
+                    setConnectionStatus(true);
+                } else {
+                    setConnectionStatus(false);
+                    showMessage('Database connection failed. Please check backend configuration.', 'error');
+                }
+            } catch (error) {
+                setConnectionStatus(false);
+                showMessage('Cannot connect to backend server. Is it running?', 'error');
+            }
+        }
+
+        function setConnectionStatus(connected) {
+            if (connected) {
+                elements.connectionStatus.classList.add('connected');
+                elements.connectionText.textContent = 'Connected';
+            } else {
+                elements.connectionStatus.classList.remove('connected');
+                elements.connectionText.textContent = 'Disconnected';
+            }
+        }
+
+        async function loadDevices() {
+            try {
+                const response = await fetch(`${API_BASE}/devices`);
+                const data = await response.json();
+                
+                if (data.devices && data.devices.length > 0) {
+                    showMessage('Devices loaded successfully', 'success');
+                } else {
+                    showMessage('No devices found in database', 'error');
+                }
+            } catch (error) {
+                showMessage('Failed to load devices: ' + error.message, 'error');
+            }
+        }
+
+        async function handleDeviceChange() {
+            const deviceAddr = elements.deviceSelector.value;
+            if (!deviceAddr) {
+                hideAllSections();
+                return;
+            }
+
+            currentDevice = deviceAddr;
+            showMessage('Loading device data...', 'loading');
+            
+            await Promise.all([
+                loadDeviceStatistics(deviceAddr),
+                loadDeviceData(deviceAddr),
+                updateCharts()
+            ]);
+        }
+
+        async function loadDeviceStatistics(deviceAddr) {
+            try {
+                const response = await fetch(`${API_BASE}/device/${deviceAddr}/statistics`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load statistics');
+                }
+                
+                updateStatistics(data);
+                elements.statsContainer.style.display = 'grid';
+            } catch (error) {
+                showMessage('Failed to load statistics: ' + error.message, 'error');
+            }
+        }
+
+        async function loadDeviceData(deviceAddr) {
+            try {
+                const params = new URLSearchParams({
+                    limit: 100,
+                    offset: 0
+                });
+
+                if (elements.startDate.value) params.append('start_date', elements.startDate.value);
+                if (elements.endDate.value) params.append('end_date', elements.endDate.value);
+
+                const response = await fetch(`${API_BASE}/device/${deviceAddr}/processed?${params}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load device data');
+                }
+                
+                updateDataTable(data.data);
+                elements.tableContainer.style.display = 'block';
+                showMessage('Data loaded successfully', 'success');
+            } catch (error) {
+                showMessage('Failed to load data: ' + error.message, 'error');
+            }
+        }
+
+        async function updateCharts() {
+            if (!currentDevice) return;
+
+            try {
+                const hours = elements.chartHours.value;
+                const response = await fetch(`${API_BASE}/device/${currentDevice}/chart-data?hours=${hours}&limit=100`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load chart data');
+                }
+                
+                if (data.chart_data && data.chart_data.length > 0) {
+                    if (currentDevice === '40377991') {
+                        createDevice40377991Charts(data.chart_data);
+                    } else if (currentDevice === '40372539') {
+                        createDevice40372539Charts(data.chart_data);
+                    }
+                    elements.chartsContainer.style.display = 'grid';
+                } else {
+                    showMessage('No chart data available for selected time range', 'error');
+                }
+            } catch (error) {
+                showMessage('Failed to load charts: ' + error.message, 'error');
+            }
+        }
+
+        function updateStatistics(data) {
+            const stats = data.basic_stats || {};
+            const recentActivity = data.recent_activity || {};
+            
+            elements.statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${(stats.total_records || 0).toLocaleString()}</div>
+                    <div class="stat-label">Total Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.node_count || 0}</div>
+                    <div class="stat-label">Node Count</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.alarm_count || 0}</div>
+                    <div class="stat-label">Alarms</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${recentActivity.recent_records || 0}</div>
+                    <div class="stat-label">24h Records</div>
+                </div>
+            `;
+        }
+
+        // Outlier filtering function
+        function filterOutliers(data, field, threshold = 3) {
+            const values = data.map(row => {
+                const val = parseFloat(row[field]);
+                return isNaN(val) ? null : val;
+            }).filter(v => v !== null);
+            
+            if (values.length === 0) return data;
+            
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const stdDev = Math.sqrt(values.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / values.length);
+            
+            // If stdDev is 0 or very small, just return original data
+            if (stdDev < 0.001) return data;
+            
+            const upperLimit = mean + (threshold * stdDev);
+            const lowerLimit = mean - (threshold * stdDev);
+            
+            return data.filter(row => {
+                const value = parseFloat(row[field]);
+                return !isNaN(value) && value >= lowerLimit && value <= upperLimit;
+            });
+        }
+
+        function createDevice40377991Charts(data) {
+            clearCharts();
+            
+            elements.chartsContainer.innerHTML = `
+                <div class="chart-card">
+                    <div class="chart-title">Temperature Trend</div>
+                    <div class="chart-canvas-container">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Vibration Velocity</div>
+                    <div class="chart-canvas-container">
+                        <canvas id="vibrationChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Displacement</div>
+                    <div class="chart-canvas-container">
+                        <canvas id="displacementChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Acceleration</div>
+                    <div class="chart-canvas-container">
+                        <canvas id="accelerationChart"></canvas>
+                    </div>
+                </div>
+            `;
+
+            // Filter outliers from temperature data
+            const filteredData = filterOutliers(data, 'Temperature', 3);
+            const labels = filteredData.map(row => new Date(row.RecordTime).toLocaleString());
+            
+            // Temperature Chart
+            charts.temp = new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: filteredData.map(row => parseFloat(row.Temperature) || 0),
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: getChartOptions('°C')
+            });
+
+            // Vibration Chart - Use original data for vibration
+            charts.vibration = new Chart(document.getElementById('vibrationChart'), {
+                type: 'line',
+                data: {
+                    labels: data.map(row => new Date(row.RecordTime).toLocaleString()),
+                    datasets: [
+                        {
+                            label: 'X-Vibration (mm/s)',
+                            data: data.map(row => parseFloat(row['X轴振动速度_mm_s']) || 0),
+                            borderColor: '#4ecdc4',
+                            backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Y-Vibration (mm/s)',
+                            data: data.map(row => parseFloat(row['Y轴振动速度_mm_s']) || 0),
+                            borderColor: '#45b7d1',
+                            backgroundColor: 'rgba(69, 183, 209, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Z-Vibration (mm/s)',
+                            data: data.map(row => parseFloat(row['Z轴振动速度_mm_s']) || 0),
+                            borderColor: '#f9ca24',
+                            backgroundColor: 'rgba(249, 202, 36, 0.1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: getChartOptions('mm/s')
+            });
+
+            // Displacement Chart
+            charts.displacement = new Chart(document.getElementById('displacementChart'), {
+                type: 'line',
+                data: {
+                    labels: data.map(row => new Date(row.RecordTime).toLocaleString()),
+                    datasets: [
+                        {
+                            label: 'X-Displacement (μm)',
+                            data: data.map(row => parseFloat(row['X_displacement_μm']) || 0),
+                            borderColor: '#a55eea',
+                            backgroundColor: 'rgba(165, 94, 234, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Y-Displacement (μm)',
+                            data: data.map(row => parseFloat(row['Y_displacement_μm']) || 0),
+                            borderColor: '#26de81',
+                            backgroundColor: 'rgba(38, 222, 129, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Z-Displacement (μm)',
+                            data: data.map(row => parseFloat(row['Z_displacement_μm']) || 0),
+                            borderColor: '#fd79a8',
+                            backgroundColor: 'rgba(253, 121, 168, 0.1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: getChartOptions('μm')
+            });
+
+            // Acceleration Chart
+            charts.acceleration = new Chart(document.getElementById('accelerationChart'), {
+                type: 'line',
+                data: {
+                    labels: data.map(row => new Date(row.RecordTime).toLocaleString()),
+                    datasets: [
+                        {
+                            label: 'X-Acceleration (m/s²)',
+                            data: data.map(row => parseFloat(row.X_acceleration_m_s2) || 0),
+                            borderColor: '#6c5ce7',
+                            backgroundColor: 'rgba(108, 92, 231, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Y-Acceleration (m/s²)',
+                            data: data.map(row => parseFloat(row.Y_acceleration_m_s2) || 0),
+                            borderColor: '#a29bfe',
+                            backgroundColor: 'rgba(162, 155, 254, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Z-Acceleration (m/s²)',
+                            data: data.map(row => parseFloat(row.Z_acceleration_m_s2) || 0),
+                            borderColor: '#fab1a0',
+                            backgroundColor: 'rgba(250, 177, 160, 0.1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: getChartOptions('m/s²')
+            });
+        }
+
+        function createDevice40372539Charts(data) {
+            clearCharts();
+            
+            elements.chartsContainer.innerHTML = `
+                <div class="chart-card">
+                    <div class="chart-title">Temperature Trend</div>
+                    <div class="chart-canvas-container">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">XYZ Velocity</div>
+                    <div class="chart-canvas-container">
+                        <canvas id="velocityChart"></canvas>
+                    </div>
+                </div>
+            `;
+
+            // Filter outliers from temperature data
+            const filteredData = filterOutliers(data, 'Temperature_C', 3);
+            const labels = filteredData.map(row => new Date(row.RecordTime).toLocaleString());
+
+            // Temperature Chart
+            charts.temp = new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: filteredData.map(row => parseFloat(row.Temperature_C) || 0),
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: getChartOptions('°C')
+            });
+
+            // Velocity Chart
+            charts.velocity = new Chart(document.getElementById('velocityChart'), {
+                type: 'line',
+                data: {
+                    labels: data.map(row => new Date(row.RecordTime).toLocaleString()),
+                    datasets: [
+                        {
+                            label: 'X-Velocity (mm/s)',
+                            data: data.map(row => parseFloat(row.X_velocity_mm_s) || 0),
+                            borderColor: '#4ecdc4',
+                            backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Y-Velocity (mm/s)',
+                            data: data.map(row => parseFloat(row.Y_velocity_mm_s) || 0),
+                            borderColor: '#45b7d1',
+                            backgroundColor: 'rgba(69, 183, 209, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Z-Velocity (mm/s)',
+                            data: data.map(row => parseFloat(row.Z_velocity_mm_s) || 0),
+                            borderColor: '#f9ca24',
+                            backgroundColor: 'rgba(249, 202, 36, 0.1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: getChartOptions('mm/s')
+            });
+        }
+
+        function getChartOptions(unit) {
+            return {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2.5,
+                interaction: {
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            padding: 10,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 20,
+                        top: 10,
+                        bottom: 10
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Time',
+                            padding: {top: 10}
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: unit,
+                            padding: {bottom: 10}
+                        },
+                        ticks: {
+                            padding: 5
+                        }
+                    }
+                }
+            };
+        }
+
+        function updateDataTable(data) {
+            if (!data || data.length === 0) {
+                document.getElementById('tableHead').innerHTML = '';
+                document.getElementById('tableBody').innerHTML = '<tr><td colspan="100%" style="text-align: center; padding: 40px;">No Data Available</td></tr>';
+                return;
+            }
+
+            const headers = Object.keys(data[0]);
+            document.getElementById('tableHead').innerHTML = 
+                `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+            document.getElementById('tableBody').innerHTML = 
+                data.map(row => 
+                    `<tr>${headers.map(h => `<td>${formatCellValue(row[h])}</td>`).join('')}</tr>`
+                ).join('');
+        }
+
+        function formatCellValue(value) {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'number') return value.toFixed(4);
+            return String(value);
+        }
+
+        function clearCharts() {
+            Object.values(charts).forEach(chart => chart.destroy());
+            charts = {};
+        }
+
+        function hideAllSections() {
+            elements.statsContainer.style.display = 'none';
+            elements.chartsContainer.style.display = 'none';
+            elements.tableContainer.style.display = 'none';
+        }
+
+        async function refreshData() {
+            if (!currentDevice) {
+                showMessage('Please select a device first', 'error');
+                return;
+            }
+
+            showMessage('Refreshing data...', 'loading');
+            await handleDeviceChange();
+        }
+
+        function showMessage(message, type = 'info') {
+            const messageArea = elements.messageArea;
+            messageArea.innerHTML = `<div class="${type}">${message}</div>`;
+            
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    messageArea.innerHTML = '';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
