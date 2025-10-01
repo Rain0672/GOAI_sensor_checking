@@ -1420,6 +1420,5 @@ def check_sync_status():
     print("  GET /api/device/<device_addr>/chart-data  - Get chart data")
     print("="*60 + "\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
