@@ -257,7 +257,7 @@
             <div class="chart-card"><div class="chart-title">Temperature - ${timeRange.label}</div><div class="chart-canvas-container"><canvas id="tempChart"></canvas></div></div>
             <div class="chart-card"><div class="chart-title">Vibration Velocity - ${timeRange.label}</div><div class="chart-canvas-container"><canvas id="vibrationChart"></canvas></div></div>
             <div class="chart-card"><div class="chart-title">Displacement - ${timeRange.label}</div><div class="chart-canvas-container"><canvas id="displacementChart"></canvas></div></div>`;
-        const timeData = data.map(row => new Date(row.RecordTime));
+        const timeData = data.map(row => new Date(row.RecordTime    ));
         charts.temp = new Chart(document.getElementById('tempChart'), { type: 'line', data: { labels: timeData, datasets: [{ label: 'Temp (°C)', data: data.map(r => r.Temperature), borderColor: '#ff6b6b' }] }, options: getChartOptions('°C', timeRange) });
         charts.vibration = new Chart(document.getElementById('vibrationChart'), { type: 'line', data: { labels: timeData, datasets: [ { label: 'X-Vib (mm/s)', data: data.map(r => r['X轴振动速度_mm_s']), borderColor: '#4ecdc4' }, { label: 'Y-Vib (mm/s)', data: data.map(r => r['Y轴振动速度_mm_s']), borderColor: '#45b7d1' }, { label: 'Z-Vib (mm/s)', data: data.map(r => r['Z轴振动速度_mm_s']), borderColor: '#f9ca24' }, ] }, options: getChartOptions('mm/s', timeRange) });
         charts.displacement = new Chart(document.getElementById('displacementChart'), { type: 'line', data: { labels: timeData, datasets: [ { label: 'X-Disp (μm)', data: data.map(r => r.X_displacement_μm), borderColor: '#a55eea' }, { label: 'Y-Disp (μm)', data: data.map(r => r.Y_displacement_μm), borderColor: '#26de81' }, { label: 'Z-Disp (μm)', data: data.map(r => r.Z_displacement_μm), borderColor: '#fd79a8' }, ] }, options: getChartOptions('μm', timeRange) });
@@ -277,10 +277,13 @@
         return {
             responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
             plugins: { legend: { position: 'top', labels: { font: { size: 10 } } } },
-            elements: { point: { radius: 0 }, line: { tension: 0.1, borderWidth: 1.5 } },
+            elements: { point: { radius: 0 }, line: { tension: 0.1, borderWidth: 3 } },
             scales: {
-                x: { type: 'time', time: { unit: timeRange.hours <= 48 ? 'hour' : 'day', tooltipFormat: 'MMM d, yyyy HH:mm:ss', displayFormats: { hour: 'HH:mm', day: 'MMM d' } }, min: timeRange.from.getTime(), max: timeRange.to.getTime(), title: { display: false } },
-                y: { beginAtZero: false, title: { display: true, text: unit } }
+                x: { type: 'time', time: { unit: timeRange.hours <= 48 ? 'hour' : 'day', tooltipFormat: 'MMM d, yyyy HH:mm:ss', displayFormats: { hour: 'HH:mm', day: 'MMM d' } }, min: timeRange.from.getTime(), max: timeRange.to.getTime(), title: { display: false },grid:{lineWidth:3,color:'rgba(0,0,0,0.15)'}},
+                y: { beginAtZero: false, title: { display: true, text: unit },grid:{
+                    color:'rgba(0,0,0,0.15)'
+                } 
+              }
             }
         };
     }

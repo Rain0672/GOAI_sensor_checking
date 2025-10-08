@@ -31,8 +31,12 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return float(obj)
         if isinstance(obj, datetime):
+            # If the datetime object from the DB is naive, assume it's in Taipei timezone
             if obj.tzinfo is None:
-                return obj.replace(tzinfo=timezone.utc).isoformat()
+                taipei_tz = pytz.timezone('Asia/Taipei')
+                # Localize the naive datetime to Taipei timezone (not UTC!)
+                obj = taipei_tz.localize(obj)
+            # Return ISO format with correct timezone
             return obj.isoformat()
         return super(DecimalEncoder, self).default(obj)
 
@@ -185,6 +189,23 @@ def _insert_processed_data(conn, cursor, device_addr, records):
     conn.commit()
     return cursor.rowcount
 
+# --- Helper: Convert UTC ISO string to Taipei naive datetime ---
+def _convert_utc_to_taipei_naive(iso_string):
+    """Convert UTC ISO string to naive datetime in Taipei timezone"""
+    if not iso_string:
+        return None
+    try:
+        # Parse the UTC timestamp
+        utc_dt = datetime.fromisoformat(iso_string.replace('Z', '+00:00'))
+        # Convert to Taipei timezone
+        taipei_tz = pytz.timezone('Asia/Taipei')
+        taipei_dt = utc_dt.astimezone(taipei_tz)
+        # Return naive datetime (strip timezone info for DB query)
+        return taipei_dt.replace(tzinfo=None)
+    except Exception as e:
+        print(f"Error converting timestamp {iso_string}: {e}")
+        return None
+
 # --- REWRITTEN Main sync and fetch function ---
 def sync_and_fetch_device_data(device_addr, from_time, to_time, order, limit, offset):
     connection = get_db_connection()
@@ -224,11 +245,17 @@ def sync_and_fetch_device_data(device_addr, from_time, to_time, order, limit, of
                 inserted_count = _insert_processed_data(connection, cursor, device_addr, processed_records)
                 print(f"Sync complete. Inserted/Updated {inserted_count} records for device {device_addr}.")
 
-        # 4. Fetch the data for the requested time range for the frontend
+        # 4. Convert UTC timestamps from frontend to Taipei naive datetimes for DB query
+        from_time_naive = _convert_utc_to_taipei_naive(from_time) if from_time else None
+        to_time_naive = _convert_utc_to_taipei_naive(to_time) if to_time else None
+        
+        print(f"Query range - From: {from_time} (UTC) -> {from_time_naive} (Taipei), To: {to_time} (UTC) -> {to_time_naive} (Taipei)")
+
+        # 5. Fetch the data for the requested time range for the frontend
         where = ["DeviceAddr = %s"]
         params = [device_addr]
-        if from_time: where.append("RecordTime >= %s"); params.append(from_time)
-        if to_time: where.append("RecordTime <= %s"); params.append(to_time)
+        if from_time_naive: where.append("RecordTime >= %s"); params.append(from_time_naive)
+        if to_time_naive: where.append("RecordTime <= %s"); params.append(to_time_naive)
         
         query = f"SELECT * FROM {table_name} WHERE {' AND '.join(where)} ORDER BY RecordTime {order} LIMIT %s OFFSET %s"
         cursor.execute(query, params + [limit, offset])
